@@ -20,18 +20,7 @@ jobs:
       - name: Install build tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            debootstrap \
-            qemu-user-static \
-            binfmt-support \
-            e2fsprogs \
-            rsync \
-            xz-utils \
-            gzip \
-            zip \
-            git \
-            ca-certificates \
-            sudo
+          sudo apt-get install -y debootstrap qemu-user-static binfmt-support e2fsprogs rsync xz-utils gzip zip git ca-certificates sudo
 
       - name: Build Debian ARM64 root filesystem
         env:
@@ -39,8 +28,8 @@ jobs:
         run: |
           set -eux
 
-          export ROOTFS="$GITHUB_WORKSPACE/debian-rootfs"
-          export IMAGE="$GITHUB_WORKSPACE/debian-a205f-debian-bookworm-arm64.ext4"
+          ROOTFS="$GITHUB_WORKSPACE/debian-rootfs"
+          IMAGE="$GITHUB_WORKSPACE/debian-a205f-debian-bookworm-arm64.ext4"
 
           sudo rm -rf "$ROOTFS"
           mkdir -p "$ROOTFS"
@@ -55,8 +44,7 @@ jobs:
           sudo cp /usr/bin/qemu-aarch64-static \
             "$ROOTFS/usr/bin/qemu-aarch64-static"
 
-          sudo chroot "$ROOTFS" /debootstrap/debootstrap \
-            --second-stage
+          sudo chroot "$ROOTFS" /debootstrap/debootstrap --second-stage
 
           sudo mount --bind /dev "$ROOTFS/dev"
           sudo mount --bind /dev/pts "$ROOTFS/dev/pts"
@@ -69,6 +57,7 @@ jobs:
             sudo umount -lf "$ROOTFS/proc" || true
             sudo umount -lf "$ROOTFS/sys" || true
           }
+
           trap cleanup EXIT
 
           sudo cp rootfs/firstboot.sh "$ROOTFS/usr/local/sbin/firstboot.sh"
@@ -79,7 +68,8 @@ jobs:
 
             export DEBIAN_FRONTEND=noninteractive
 
-            echo "debian-a205f" > /etc/hostname
+            printf "%s
+" "debian-a205f" > /etc/hostname
 
             cat > /etc/hosts <<EOF
 127.0.0.1 localhost
@@ -99,60 +89,7 @@ EOF
               systemd \
               systemd-sysv \
               dbus \
-              sudo \
-              openssh-server \
-              network-manager \
-              iproute2 \
-              iputils-ping \
-              net-tools \
-              curl \
-              wget \
-              nano \
-              vim-tiny \
-              ca-certificates \
-              bash-completion \
-              procps \
-              psmisc \
-              kmod \
-              usbutils \
-              pciutils \
-              rsync \
-              htop
-
-            useradd -m -s /bin/bash user || true
-            echo "user:debian" | chpasswd
-            usermod -aG sudo,audio,video,input,plugdev user
-
-            echo "root:root" | chpasswd
-
-            systemctl enable ssh || true
-            systemctl enable NetworkManager || true
-
-            rm -f /usr/bin/qemu-aarch64-static
-            rm -rf /var/lib/apt/lists/*
-            rm -rf /tmp/*
-            rm -rf /var/tmp/*
-          '
-
-          sudo rm -f "$ROOTFS/usr/bin/qemu-aarch64-static"
-
-          sudo mkdir -p "$ROOTFS/etc/systemd/system"
-          sudo tee "$ROOTFS/etc/systemd/system/firstboot.service" > /dev/null <<'EOF'
-[Unit]
-Description=Debian phone first boot setup
-After=local-fs.target
-Before=ssh.service
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/sbin/firstboot.sh
-RemainAfterExit=yes
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-          sudo chroot "$ROOTFS" systemctl enable firstboot.service || true
+              sudo \          sudo chroot "$ROOTFS" systemctl enable firstboot.service || true
 
           sudo truncate -s 2G "$IMAGE"
           sudo mkfs.ext4 -F -L DEBIAN "$IMAGE"
